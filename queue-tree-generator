@@ -1,14 +1,22 @@
-#
+#run this script periodicaly using scheduler
 :if ([:len [queue tree find name="DL-root"]] = 0) do={queue tree add name="DL-root" parent=global-out limit-at=0 priority=8 max-limit=19M burst-limit=0 burst-threshold=0 burst-time=0s;}
 :if ([:len [queue tree find name="UL-root"]] = 0) do={queue tree add name="UL-root" parent=global-out limit-at=0 priority=8 max-limit=19M burst-limit=0 burst-threshold=0 burst-time=0s;}
-queue tree add parent=DL-root max-limit=19M name="DLx-per-ip" priority=8 queue=default;
-queue tree add parent=UL-root max-limit=19M name="ULx-per-ip" priority=8 queue=default;
+:if ([:len [queue tree find name="DLx-per-ip"]] = 0) do={queue tree add parent=DL-root max-limit=19M name="DLx-per-ip" priority=8 queue=default;}
+:if ([:len [queue tree find name="ULx-per-ip"]] = 0) do={queue tree add parent=UL-root max-limit=19M name="ULx-per-ip" priority=8 queue=default;}
 
-ip fir mangle add chain=prerouting dst-address=207.97.192.0/18 action=mark-packet new-packet-mark="to-github" passthrough=no; 
-queue tree add parent=UL-root limit-at=15M max-limit=19M name="UL-to-github" packet-mark="to-github" priority=3 queue=wireless-default;
-ip fir mangle add chain=prerouting src-address=207.97.192.0/18 action=mark-packet new-packet-mark="from-github" passthrough=no; 
-queue tree add parent=DL-root limit-at=15M max-limit=19M name="DL-from-github" packet-mark="from-github" priority=3 queue=wireless-default;
+#github
+ip fir mangle add chain=prerouting dst-address=207.97.192.0/18 action=mark-packet new-packet-mark="to-github" passthrough=no;
+ip fir mangle add chain=prerouting src-address=207.97.192.0/18 action=mark-packet new-packet-mark="from-github" passthrough=no;
+:if ([:len [queue tree find name="DL-from-github"]] = 0) do={queue tree add parent=DL-root limit-at=15M max-limit=19M name="DL-from-github" packet-mark="from-github" priority=3 queue=wireless-default;}
+:if ([:len [queue tree find name="UL-to-github"]] = 0) do={queue tree add parent=UL-root limit-at=15M max-limit=19M name="UL-to-github" packet-mark="to-github" priority=3 queue=wireless-default;}
 
+#ssh
+ip fir mangle add chain=prerouting protocol=tcp src-port=22 action=mark-packet new-packet-mark=ssh-in passthrough=no;
+ip fir mangle add chain=prerouting protocol=tcp dst-port=22 action=mark-packet new-packet-mark=ssh-out passthrough=no;
+:if ([:len [queue tree find name="DL-ssh-in"]] = 0) do={queue tree add parent=DL-root limit-at=15M max-limit=19M name="DL-ssh-in" packet-mark="ssh-in" priority=2 queue=wireless-default;}
+:if ([:len [queue tree find name="UL-ssh-out"]] = 0) do={queue tree add parent=UL-root limit-at=15M max-limit=19M name="UL-ssh-out" packet-mark="ssh-out" priority=2 queue=wireless-default;}
+
+#get wireless clients IPs, look if there are coresponding rules, if not - create 
 :foreach i in=[/int wir reg find] do={
     :local ip [/int wir reg get $i last-ip];:if ([:len $ip] > 0) do={
             :if ([:len [ip fir mangle find dst-address=$ip]] = 0) do={
