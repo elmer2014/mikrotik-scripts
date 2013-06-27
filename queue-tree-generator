@@ -5,14 +5,20 @@
 :if ([:len [queue tree find name="ULx-per-ip"]] = 0) do={queue tree add parent=UL-root max-limit=19M name="ULx-per-ip" priority=8 queue=default;}
 
 #github
-ip fir mangle add chain=prerouting dst-address=207.97.192.0/18 action=mark-packet new-packet-mark="to-github" passthrough=no;
-ip fir mangle add chain=prerouting src-address=207.97.192.0/18 action=mark-packet new-packet-mark="from-github" passthrough=no;
+:local githubip;
+:set githubip "207.97.192.0/18";
+:if ([:len [ip fir mangle find dst-address=$githubip]] = 0) do={
+  ip fir mangle add chain=prerouting dst-address=207.97.192.0/18 action=mark-packet new-packet-mark="to-github" passthrough=no;
+  ip fir mangle add chain=prerouting src-address=207.97.192.0/18 action=mark-packet new-packet-mark="from-github" passthrough=no;
+}
 :if ([:len [queue tree find name="DL-from-github"]] = 0) do={queue tree add parent=DL-root limit-at=15M max-limit=19M name="DL-from-github" packet-mark="from-github" priority=3 queue=wireless-default;}
 :if ([:len [queue tree find name="UL-to-github"]] = 0) do={queue tree add parent=UL-root limit-at=15M max-limit=19M name="UL-to-github" packet-mark="to-github" priority=3 queue=wireless-default;}
 
 #ssh
-ip fir mangle add chain=prerouting protocol=tcp src-port=22 action=mark-packet new-packet-mark=ssh-in passthrough=no;
-ip fir mangle add chain=prerouting protocol=tcp dst-port=22 action=mark-packet new-packet-mark=ssh-out passthrough=no;
+:if ([:len [ip fir mangle find protocol=tcp src-port=22]] = 0) do={  
+  ip fir mangle add chain=prerouting protocol=tcp src-port=22 action=mark-packet new-packet-mark=ssh-in passthrough=no;
+  ip fir mangle add chain=prerouting protocol=tcp dst-port=22 action=mark-packet new-packet-mark=ssh-out passthrough=no;
+}
 :if ([:len [queue tree find name="DL-ssh-in"]] = 0) do={queue tree add parent=DL-root limit-at=15M max-limit=19M name="DL-ssh-in" packet-mark="ssh-in" priority=2 queue=wireless-default;}
 :if ([:len [queue tree find name="UL-ssh-out"]] = 0) do={queue tree add parent=UL-root limit-at=15M max-limit=19M name="UL-ssh-out" packet-mark="ssh-out" priority=2 queue=wireless-default;}
 
